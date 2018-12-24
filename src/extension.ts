@@ -109,15 +109,8 @@ const evaluateCurrentBuffer = async () => {
     await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time} -s 960x600`);
 
     // Add decoration
-    const ranges = [];
-    for (let i = 0; i < editor.document.lineCount; i += 1) {
-        ranges.push(new vscode.Range(
-            new vscode.Position(i, 0),
-            new vscode.Position(i, 0)
-        ));
-    }
     const decoration = getDecoration(outpath);
-    editor.setDecorations(decoration, ranges);
+    editor.setDecorations(decoration, [editor.visibleRanges[0]]);
 
     if (lastShaderDecoration) {
         lastShaderDecoration.dispose();
@@ -130,7 +123,7 @@ const initializeTextBackground = () => {
     if (!editor) { return; }
 
     textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
-        textDecoration: `none; background: rgba(0, 0, 0, 0.5);`,
+        textDecoration: `none; background: rgba(0, 0, 0, 0.8);`,
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
     editor.setDecorations(textDecoration, [new vscode.Range(
@@ -149,7 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
         startTime = Date.now();
         evaluateCurrentBuffer();
         if (!timer) {
-           timer = setInterval(evaluateCurrentBuffer, 2000);
+           timer = setInterval(evaluateCurrentBuffer, 200);
         }
     });
 
