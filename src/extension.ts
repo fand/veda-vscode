@@ -33,7 +33,7 @@ const objectToCssString = (settings: any): string => {
     const cssString = Object.keys(settings).map(setting => {
         value = settings[setting];
         if (typeof value === 'string' || typeof value === 'number') {
-            return `${setting}: ${value};`;
+            return `${setting}: ${value} !important;`;
         }
     }).join(' ');
 
@@ -50,27 +50,22 @@ const getBackgroundCssSettings = (explosion: string) => {
     };
 };
 
-const getDecoration = (explosion: string, editorPosition: vscode.Position ): vscode.TextEditorDecorationType => {
-
-    // const explosionUrl = getExplosionUrl(explosion);
-    // const explosionUrl = '/Users/amagi/vsvs/vsvs/out.gif';
-    const explosionUrl = explosion;
+const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType => {
     const backgroundCss = getBackgroundCssSettings(explosionUrl);
 
     const defaultCss = {
-        position: 'fixed',
+        display: `block`,
+        width: '100vw',
+        height: `100vh`,
+
+        position: 'absolute',
         top: 0,
         left: 0,
-        'margin-left': '-66px',
-        width: '100vw !important',
-        height: `100vh !important`,
-        display: `block`,
-        ['z-index']: 1,
-        ['pointer-events']: 'none',
-        opacity: 0.5,
-        transform: 'none !important',
-    };
+        bottom: 0,
+        right: 0,
 
+        ['z-index']: `-1`,
+    };
 
     const backgroundCssString = objectToCssString(backgroundCss);
     const defaultCssString = objectToCssString(defaultCss);
@@ -80,14 +75,17 @@ const getDecoration = (explosion: string, editorPosition: vscode.Position ): vsc
             contentText: '',
             textDecoration: `none; ${defaultCssString} ${backgroundCssString}`,
         },
-        textDecoration: `none; position: relative; background: rgba(0, 0, 0, 0.5);`,
+        textDecoration: `none; position: relative; overflow: visible; transform: none !important;`,
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
 };
 
+// App state
 let timer: NodeJS.Timer | null = null;
 let index = 0;
 let startTime = 0;
+let textDecoration: vscode.TextEditorDecorationType | null = null;
+let lastShaderDecoration: vscode.TextEditorDecorationType | null = null;
 
 const evaluateCurrentBuffer = async () => {
     const editor = vscode.window.activeTextEditor;
@@ -102,34 +100,43 @@ const evaluateCurrentBuffer = async () => {
     const filepath = path.join(tmpdir, 'vsvs', `${index}.frag`);
     const outpath = path.join(tmpdir, 'vsvs', `${index}.png`);
 
-    console.log(outpath);
-
     // Save the shader to tmp file
     const text = editor.document.getText();
     await p(fs.writeFile)(filepath, text, 'utf8');
 
     // Get Data URL for the shader
     const time = (Date.now() - startTime) / 1000;
-    // await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time}`);
     await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time} -s 960x600`);
 
     // Add decoration
-    const cursorPosition = editor.selection.active;
-    const newRange = new vscode.Range(
+    const ranges = [];
+    for (let i = 0; i < editor.document.lineCount; i += 1) {
+        ranges.push(new vscode.Range(
+            new vscode.Position(i, 0),
+            new vscode.Position(i, 0)
+        ));
+    }
+    const decoration = getDecoration(outpath);
+    editor.setDecorations(decoration, ranges);
+
+    if (lastShaderDecoration) {
+        lastShaderDecoration.dispose();
+    }
+    lastShaderDecoration = decoration;
+};
+
+const initializeTextBackground = () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) { return; }
+
+    textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
+        textDecoration: `none; background: rgba(0, 0, 0, 0.5);`,
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+    });
+    editor.setDecorations(textDecoration, [new vscode.Range(
         new vscode.Position(0, 0),
-        new vscode.Position(editor.document.lineCount - 1, 1)
-        // cursorPosition.with(0, 0),
-        // cursorPosition.with(editor.document.lineCount - 1, 0)
-        // cursorPosition.with(cursorPosition.line, Math.max(0, cursorPosition.character + 10))
-    );
-    const decoration = getDecoration(outpath, cursorPosition);
-    editor.setDecorations(decoration, [
-        newRange,
-        new vscode.Range(
-            new vscode.Position(editor.document.lineCount - 10, 0),
-            new vscode.Position(editor.document.lineCount - 1, 1)
-        ),
-    ]);
+        new vscode.Position(editor.document.lineCount, 9999)
+    )]);
 };
 
 export function activate(context: vscode.ExtensionContext) {
@@ -137,10 +144,12 @@ export function activate(context: vscode.ExtensionContext) {
         let editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        startTime = Date.now();
+        initializeTextBackground();
 
+        startTime = Date.now();
+        evaluateCurrentBuffer();
         if (!timer) {
-            timer = setInterval(evaluateCurrentBuffer, 2000);
+           timer = setInterval(evaluateCurrentBuffer, 2000);
         }
     });
 
@@ -150,6 +159,12 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     if (timer) {
         clearInterval(timer);
+    }
+    if (textDecoration) {
+        textDecoration.dispose();
+    }
+    if (lastShaderDecoration) {
+        lastShaderDecoration.dispose();
     }
 }
 
