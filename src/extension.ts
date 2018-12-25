@@ -57,7 +57,8 @@ const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType =>
 };
 
 // App state
-let timer: NodeJS.Timer | null = null;
+let evalTimer: NodeJS.Timer | null = null;
+let loadTimer: NodeJS.Timer | null = null;
 let index = 0;
 let startTime = 0;
 let textDecoration: vscode.TextEditorDecorationType | null = null;
@@ -72,7 +73,7 @@ const evaluateCurrentBuffer = async () => {
         await p(fs.mkdir)(path.join(tmpdir, 'vsvs'), { recursive: true });
     } catch(e) {}
 
-    index++;
+    // index++;
     const filepath = path.join(tmpdir, 'vsvs', `${index}.frag`);
     const outpath = path.join(tmpdir, 'vsvs', `${index}.png`);
 
@@ -82,14 +83,26 @@ const evaluateCurrentBuffer = async () => {
 
     // Get Data URL for the shader
     const time = (Date.now() - startTime) / 1000;
-    await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time} -s 960x600`);
+    await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time} -s 720x450`);
+};
+
+const loadImage = () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) { return; }
+
+    const tmpdir = os.tmpdir();
+    const outpath = path.join(tmpdir, 'vsvs', `${index}.png?time=${Date.now()}`);
 
     // Add decoration
     const decoration = getDecoration(outpath);
     editor.setDecorations(decoration, [editor.visibleRanges[0]]);
 
     if (lastShaderDecoration) {
-        lastShaderDecoration.dispose();
+        const ls = lastShaderDecoration;
+        setTimeout(() => {
+            ls.dispose();
+        }, 100);
+//        lastShaderDecoration.dispose();
     }
     lastShaderDecoration = decoration;
 };
@@ -117,17 +130,24 @@ export function activate(context: vscode.ExtensionContext) {
 
         startTime = Date.now();
         evaluateCurrentBuffer();
-        if (!timer) {
-           timer = setInterval(evaluateCurrentBuffer, 500);
+        loadImage();
+        if (!evalTimer) {
+            evalTimer = setInterval(evaluateCurrentBuffer, 200);
         }
-    });
+        if (!loadTimer) {
+            loadTimer = setInterval(loadImage, 60);
+        }
+      });
 
     context.subscriptions.push(disposable);
 }
 
 export function deactivate() {
-    if (timer) {
-        clearInterval(timer);
+    if (evalTimer) {
+        clearInterval(evalTimer);
+    }
+    if (loadTimer) {
+        clearInterval(loadTimer);
     }
     if (textDecoration) {
         textDecoration.dispose();
