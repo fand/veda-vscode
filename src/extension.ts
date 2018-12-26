@@ -108,8 +108,7 @@ const loadImage = (idx: number) => {
         const ls = lastShaderDecoration;
         setTimeout(() => {
             ls.dispose();
-        }, 100);
-//        lastShaderDecoration.dispose();
+        }, 300);
     }
     lastShaderDecoration = decoration;
 };
