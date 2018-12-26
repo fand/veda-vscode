@@ -57,41 +57,48 @@ const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType =>
 };
 
 // App state
-let evalTimer: NodeJS.Timer | null = null;
-let loadTimer: NodeJS.Timer | null = null;
-let index = 0;
 let startTime = 0;
 let textDecoration: vscode.TextEditorDecorationType | null = null;
 let lastShaderDecoration: vscode.TextEditorDecorationType | null = null;
+let lastProcess: cp.ChildProcess;
 
-const evaluateCurrentBuffer = async () => {
+const startImageWorker = async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) { return; }
 
+    // Kill last process
+    if (lastProcess) {
+        lastProcess.kill('SIGINT');
+    }
+
+    // Prepare working directory
     const tmpdir = os.tmpdir();
     try {
         await p(fs.mkdir)(path.join(tmpdir, 'vsvs'), { recursive: true });
     } catch(e) {}
 
-    // index++;
-    const filepath = path.join(tmpdir, 'vsvs', `${index}.frag`);
-    const outpath = path.join(tmpdir, 'vsvs', `${index}.png`);
-
     // Save the shader to tmp file
     const text = editor.document.getText();
+    const filepath = path.join(tmpdir, 'vsvs', `in.frag`);
     await p(fs.writeFile)(filepath, text, 'utf8');
 
-    // Get Data URL for the shader
+    // Start process
     const time = (Date.now() - startTime) / 1000;
-    await p(cp.exec)(`glsl2png ${filepath} -o ${outpath} -t ${time} -s 720x450`);
+    const outdir = path.join(tmpdir, 'vsvs');
+    const cmd = path.resolve(__dirname, '../bin/glsl2png');
+    lastProcess = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
+    lastProcess.stdout.on('data', (d) => {
+        loadImage(parseInt(d.toString('utf8')));
+    });
 };
 
-const loadImage = () => {
+const loadImage = (idx: number) => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) { return; }
 
+    const now = Date.now();
     const tmpdir = os.tmpdir();
-    const outpath = path.join(tmpdir, 'vsvs', `${index}.png?time=${Date.now()}`);
+    const outpath = path.join(tmpdir, 'vsvs', `out${idx}.png?time=${now}`);
 
     // Add decoration
     const decoration = getDecoration(outpath);
@@ -129,26 +136,24 @@ export function activate(context: vscode.ExtensionContext) {
         initializeTextBackground();
 
         startTime = Date.now();
-        evaluateCurrentBuffer();
-        loadImage();
-        if (!evalTimer) {
-            evalTimer = setInterval(evaluateCurrentBuffer, 200);
-        }
-        if (!loadTimer) {
-            loadTimer = setInterval(loadImage, 60);
-        }
+
+        // Register event listeners
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            initializeTextBackground();
+            startImageWorker();
+        });
+        vscode.workspace.onDidChangeTextDocument(() => {
+            startImageWorker();
+        });
+
+        // First evaluation
+        startImageWorker();
       });
 
     context.subscriptions.push(disposable);
 }
 
 export function deactivate() {
-    if (evalTimer) {
-        clearInterval(evalTimer);
-    }
-    if (loadTimer) {
-        clearInterval(loadTimer);
-    }
     if (textDecoration) {
         textDecoration.dispose();
     }
