@@ -74,17 +74,17 @@ const startImageWorker = async () => {
     // Prepare working directory
     const tmpdir = os.tmpdir();
     try {
-        await p(fs.mkdir)(path.join(tmpdir, 'vsvs'), { recursive: true });
+        await p(fs.mkdir)(path.join(tmpdir, 'veda'), { recursive: true });
     } catch(e) {}
 
     // Save the shader to tmp file
     const text = editor.document.getText();
-    const filepath = path.join(tmpdir, 'vsvs', `in.frag`);
+    const filepath = path.join(tmpdir, 'veda', `in.frag`);
     await p(fs.writeFile)(filepath, text, 'utf8');
 
     // Start process
     const time = (Date.now() - startTime) / 1000;
-    const outdir = path.join(tmpdir, 'vsvs');
+    const outdir = path.join(tmpdir, 'veda');
     const cmd = path.resolve(__dirname, '../bin/glsl2png');
     lastProcess = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
     lastProcess.stdout.on('data', (d) => {
@@ -98,7 +98,7 @@ const loadImage = (idx: number) => {
 
     const now = Date.now();
     const tmpdir = os.tmpdir();
-    const outpath = path.join(tmpdir, 'vsvs', `out${idx}.png?time=${now}`);
+    const outpath = path.join(tmpdir, 'veda', `out${idx}.png?time=${now}`);
 
     // Add decoration
     const decoration = getDecoration(outpath);
