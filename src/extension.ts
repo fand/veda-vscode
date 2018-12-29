@@ -18,33 +18,27 @@ const objectToCssString = (settings: any): string => {
     return cssString;
 };
 
-const getBackgroundCssSettings = (explosion: string) => {
-    return {
-        'background-repeat': 'no-repeat',
-        'background-size': 'contain',
-        'background-image': `url("${explosion}")`,
-    };
+const defaultCss = {
+    display: `block`,
+    width: '100vw',
+    height: `100vh`,
+
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+
+    ['z-index']: `-1`,
 };
+const defaultCssString = objectToCssString(defaultCss);
 
 const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType => {
-    const backgroundCss = getBackgroundCssSettings(explosionUrl);
-
-    const defaultCss = {
-        display: `block`,
-        width: '100vw',
-        height: `100vh`,
-
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        right: 0,
-
-        ['z-index']: `-1`,
-    };
-
-    const backgroundCssString = objectToCssString(backgroundCss);
-    const defaultCssString = objectToCssString(defaultCss);
+    const backgroundCssString = `
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-image: url(${explosionUrl});
+    `;
 
     return vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
         before: {
