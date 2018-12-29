@@ -6,6 +6,8 @@ import * as p from 'pify';
 import * as os from 'os';
 import * as path from 'path';
 
+const tmpdir = os.tmpdir();
+
 const objectToCssString = (settings: any): string => {
     let value = '';
     const cssString = Object.keys(settings).map(setting => {
@@ -91,7 +93,6 @@ const loadImage = (idx: number) => {
     if (!editor) { return; }
 
     const now = Date.now();
-    const tmpdir = os.tmpdir();
     const outpath = path.join(tmpdir, 'veda', `out${idx}.png?time=${now}`);
 
     // Add decoration
