@@ -113,7 +113,7 @@ const initializeTextBackground = () => {
     if (!editor) { return; }
 
     textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
-        textDecoration: `none; background: rgba(0, 0, 0, 0.8);`,
+        textDecoration: `none; background: black;`,
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
     editor.setDecorations(textDecoration, [new vscode.Range(
