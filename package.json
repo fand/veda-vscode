@@ -10,14 +10,27 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello"
+        "onCommand:veda.play"
     ],
     "main": "./out/extension",
     "contributes": {
         "commands": [
             {
-                "command": "extension.sayHello",
-                "title": "Hello World"
+                "command": "veda.play",
+                "title": "VEDA: Play"
+            },
+            {
+                "command": "veda.stop",
+                "title": "VEDA: Stop"
+            }
+        ],
+        "keybindings": [
+            {
+                "mac": "ctrl+enter",
+                "win": "ctrl+enter",
+                "linux": "ctrl+enter",
+                "key": "ctrl+enter",
+                "command": "veda.play"
             }
         ]
     },

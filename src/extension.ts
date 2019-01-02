@@ -53,112 +53,137 @@ const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType =>
 };
 
 // App state
-let startTime = 0;
-let textDecoration: vscode.TextEditorDecorationType | null = null;
-let lastShaderDecoration: vscode.TextEditorDecorationType | null = null;
-let lastProcess: cp.ChildProcess;
+class VedaExtension {
+    _isInitialized: boolean = false;
+    startTime: number = 0;
+    textDecoration?: vscode.TextEditorDecorationType;
+    lastShaderDecoration?: vscode.TextEditorDecorationType;
+    lastImageWorker?: cp.ChildProcess;
 
-const startImageWorker = async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) { return; }
-
-    // Kill last process
-    if (lastProcess) {
-        lastProcess.kill('SIGTERM');
+    public isEnabled(): boolean {
+        return this._isInitialized;
     }
 
-    // Prepare working directory
-    const tmpdir = os.tmpdir();
-    try {
-        await p(fs.mkdir)(path.join(tmpdir, 'veda'), { recursive: true });
-    } catch(e) {}
+    initialize(): void {
+        this.startTime = Date.now();
 
-    // Save the shader to tmp file
-    const text = editor.document.getText();
-    const filepath = path.join(tmpdir, 'veda', `in.frag`);
-    await p(fs.writeFile)(filepath, text, 'utf8');
+        this.initializeTextBackground();
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            this.initializeTextBackground();
+        });
 
-    // Start process
-    const time = (Date.now() - startTime) / 1000;
-    const outdir = path.join(tmpdir, 'veda');
-    const cmd = path.resolve(__dirname, '../bin/glsl2png');
-    lastProcess = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
-    lastProcess.stdout.on('data', (d) => {
-        loadImage(parseInt(d.toString('utf8')));
-    });
-    lastProcess.stderr.on('data', (d) => {
-        console.log('>> veda error: glsl2png throwed an error');
-        console.log(d.toString());
-    });
-    lastProcess.on('close', (code) => {
-        console.log(`>> veda info: child process exited with code ${code}`);
-    });
-};
-
-const loadImage = (idx: number) => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) { return; }
-
-    const now = Date.now();
-    const outpath = path.join(tmpdir, 'veda', `out${idx}.png?time=${now}`);
-
-    // Add decoration
-    const decoration = getDecoration(outpath);
-    editor.setDecorations(decoration, [editor.visibleRanges[0]]);
-
-    if (lastShaderDecoration) {
-        const ls = lastShaderDecoration;
-        setTimeout(() => {
-            ls.dispose();
-        }, 300);
+        this._isInitialized = true;
     }
-    lastShaderDecoration = decoration;
-};
 
-const initializeTextBackground = () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) { return; }
+    public play(): void {
+        if (!this._isInitialized) {
+            this.initialize();
+        }
 
-    textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
-        textDecoration: `none; background: black;`,
-        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
-    });
-    editor.setDecorations(textDecoration, [new vscode.Range(
-        new vscode.Position(0, 0),
-        new vscode.Position(editor.document.lineCount, 9999)
-    )]);
-};
+        this.loadShader();
+    }
 
-export function activate(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('extension.sayHello', () => {
-        let editor = vscode.window.activeTextEditor;
+    public stop(): void {
+        if (this.textDecoration) {
+            this.textDecoration.dispose();
+        }
+        if (this.lastShaderDecoration) {
+            this.lastShaderDecoration.dispose();
+        }
+
+        this._isInitialized = false;
+    }
+
+    loadShader = async () => {
+        const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        initializeTextBackground();
+        // Kill last process
+        if (this.lastImageWorker) {
+            this.lastImageWorker.kill('SIGTERM');
+        }
 
-        startTime = Date.now();
+        // Prepare working directory
+        const tmpdir = os.tmpdir();
+        try {
+            await p(fs.mkdir)(path.join(tmpdir, 'veda'), { recursive: true });
+        } catch(e) {}
 
-        // Register event listeners
-        vscode.window.onDidChangeActiveTextEditor(() => {
-            initializeTextBackground();
-            startImageWorker();
+        // Save the shader to tmp file
+        const text = editor.document.getText();
+        const filepath = path.join(tmpdir, 'veda', `in.frag`);
+        await p(fs.writeFile)(filepath, text, 'utf8');
+
+        // Start process
+        const time = (Date.now() - this.startTime) / 1000;
+        const outdir = path.join(tmpdir, 'veda');
+        const cmd = path.resolve(__dirname, '../bin/glsl2png');
+        this.lastImageWorker = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
+        this.lastImageWorker.stdout.on('data', (d) => {
+            this.loadImage(parseInt(d.toString('utf8')));
         });
-        vscode.workspace.onDidChangeTextDocument(() => {
-            startImageWorker();
+        this.lastImageWorker.stderr.on('data', (d) => {
+            console.log('>> veda error: glsl2png throwed an error');
+            console.log(d.toString());
         });
+        this.lastImageWorker.on('close', (code) => {
+            console.log(`>> veda info: child process exited with code ${code}`);
+        });
+    }
 
-        // First evaluation
-        startImageWorker();
-      });
+    loadImage = (idx: number) => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) { return; }
 
-    context.subscriptions.push(disposable);
+        const now = Date.now();
+        const outpath = path.join(tmpdir, 'veda', `out${idx}.png?time=${now}`);
+
+        // Add decoration
+        const decoration = getDecoration(outpath);
+        editor.setDecorations(decoration, [editor.visibleRanges[0]]);
+
+        if (this.lastShaderDecoration) {
+            const ls = this.lastShaderDecoration;
+            setTimeout(() => {
+                ls.dispose();
+            }, 300);
+        }
+        this.lastShaderDecoration = decoration;
+    }
+
+    initializeTextBackground = () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) { return; }
+
+        this.textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
+            textDecoration: `none; background: black;`,
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+        });
+        editor.setDecorations(this.textDecoration, [new vscode.Range(
+            new vscode.Position(0, 0),
+            new vscode.Position(editor.document.lineCount, 9999)
+        )]);
+    }
 }
 
-export function deactivate() {
-    if (textDecoration) {
-        textDecoration.dispose();
+let ext: VedaExtension | undefined;
+
+export function activate(context: vscode.ExtensionContext) {
+    if (ext === undefined) {
+        ext = new VedaExtension();
     }
-    if (lastShaderDecoration) {
-        lastShaderDecoration.dispose();
+
+    context.subscriptions.push(vscode.commands.registerCommand('veda.play', () => {
+        ext!.play();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('veda.stop', () => {
+        ext!.stop();
+    }));
+}
+
+export function deactivate(context: vscode.ExtensionContext) {
+    if (ext) {
+        ext.stop();
+        ext = undefined;
     }
 }
