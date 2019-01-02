@@ -156,7 +156,7 @@ class VedaExtension {
         if (!editor) { return; }
 
         this.textDecoration = vscode.window.createTextEditorDecorationType(<vscode.DecorationRenderOptions>{
-            textDecoration: `none; background: black;`,
+            textDecoration: `none; background: rgba(0, 0, 0, 0.8);`,
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
         });
         editor.setDecorations(this.textDecoration, [new vscode.Range(
