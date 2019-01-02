@@ -86,6 +86,10 @@ const startImageWorker = async () => {
     lastProcess.stdout.on('data', (d) => {
         loadImage(parseInt(d.toString('utf8')));
     });
+    lastProcess.stderr.on('data', (d) => {
+        console.log('>> veda error: glsl2png throwed an error');
+        console.log(d.toString());
+    });
 };
 
 const loadImage = (idx: number) => {
