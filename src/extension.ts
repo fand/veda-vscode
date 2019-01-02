@@ -64,7 +64,7 @@ const startImageWorker = async () => {
 
     // Kill last process
     if (lastProcess) {
-        lastProcess.kill('SIGINT');
+        lastProcess.kill('SIGTERM');
     }
 
     // Prepare working directory
@@ -89,6 +89,9 @@ const startImageWorker = async () => {
     lastProcess.stderr.on('data', (d) => {
         console.log('>> veda error: glsl2png throwed an error');
         console.log(d.toString());
+    });
+    lastProcess.on('close', (code) => {
+        console.log(`>> veda info: child process exited with code ${code}`);
     });
 };
 
