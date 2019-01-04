@@ -6,8 +6,6 @@ import * as p from 'pify';
 import * as os from 'os';
 import * as path from 'path';
 
-const tmpdir = os.tmpdir();
-
 const objectToCssString = (settings: any): string => {
     let value = '';
     const cssString = Object.keys(settings).map(setting => {
@@ -59,23 +57,52 @@ class VedaExtension {
     textDecoration?: vscode.TextEditorDecorationType;
     lastShaderDecoration?: vscode.TextEditorDecorationType;
     lastImageWorker?: cp.ChildProcess;
+    isOnSupportedPlatform = true;
+    tmpdir: string;
+    imageWorkerCmdPath: string;
+    imageWorkerOutDir: string;
+
+    constructor() {
+        this.tmpdir = os.tmpdir();
+        this.imageWorkerOutDir = path.join(this.tmpdir, 'veda');
+
+        if (process.platform === "win32") {
+            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/glsl2png.exe');
+        } else if (process.platform === 'darwin') {
+            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/glsl2png');
+        } else {
+            vscode.window.showErrorMessage("VEDA is not supported on this platform: " + process.platform);
+            this.imageWorkerCmdPath = "";
+            this.isOnSupportedPlatform = false;
+        }
+    }
 
     public isEnabled(): boolean {
+        if (!this.isOnSupportedPlatform) { return false; }
+
         return this._isInitialized;
     }
 
-    initialize(): void {
+    async initialize(): Promise<void> {
         this.startTime = Date.now();
 
+        // Setup text background
         this.initializeTextBackground();
         vscode.window.onDidChangeActiveTextEditor(() => {
             this.initializeTextBackground();
         });
 
+        // Prepare working directory
+        try {
+            await p(fs.mkdir)(path.join(this.tmpdir, 'veda'), { recursive: true });
+        } catch(e) {}
+
         this._isInitialized = true;
     }
 
     public play(): void {
+        if (!this.isOnSupportedPlatform) { return; }
+
         if (!this._isInitialized) {
             this.initialize();
         }
@@ -84,6 +111,8 @@ class VedaExtension {
     }
 
     public stop(): void {
+        if (!this.isOnSupportedPlatform) { return; }
+
         if (this.textDecoration) {
             this.textDecoration.dispose();
         }
@@ -98,15 +127,9 @@ class VedaExtension {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        // Prepare working directory
-        const tmpdir = os.tmpdir();
-        try {
-            await p(fs.mkdir)(path.join(tmpdir, 'veda'), { recursive: true });
-        } catch(e) {}
-
         // Save the shader to tmp file
         const text = editor.document.getText();
-        const filepath = path.join(tmpdir, 'veda', `in.frag`);
+        const filepath = path.join(this.tmpdir, 'veda', `in.frag`);
         await p(fs.writeFile)(filepath, text, 'utf8');
 
         if (this.lastImageWorker) {
@@ -114,9 +137,7 @@ class VedaExtension {
         } else {
             // Start process
             const time = (Date.now() - this.startTime) / 1000;
-            const outdir = path.join(tmpdir, 'veda');
-            const cmd = path.resolve(__dirname, '../bin/glsl2png');
-            this.lastImageWorker = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
+            this.lastImageWorker = cp.spawn(this.imageWorkerCmdPath, ['-outdir', this.imageWorkerOutDir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
             this.lastImageWorker.stdout.on('data', (d) => {
                 this.loadImage(parseInt(d.toString('utf8')));
             });
@@ -135,7 +156,7 @@ class VedaExtension {
         if (!editor) { return; }
 
         const now = Date.now();
-        const outpath = path.join(tmpdir, 'veda', `out${idx}.png?time=${now}`);
+        const outpath = path.join(this.tmpdir, 'veda', `out${idx}.png?time=${now}`);
 
         // Add decoration
         const decoration = getDecoration(outpath);
