@@ -98,11 +98,6 @@ class VedaExtension {
         const editor = vscode.window.activeTextEditor;
         if (!editor) { return; }
 
-        // Kill last process
-        if (this.lastImageWorker) {
-            this.lastImageWorker.kill('SIGTERM');
-        }
-
         // Prepare working directory
         const tmpdir = os.tmpdir();
         try {
@@ -114,21 +109,25 @@ class VedaExtension {
         const filepath = path.join(tmpdir, 'veda', `in.frag`);
         await p(fs.writeFile)(filepath, text, 'utf8');
 
-        // Start process
-        const time = (Date.now() - this.startTime) / 1000;
-        const outdir = path.join(tmpdir, 'veda');
-        const cmd = path.resolve(__dirname, '../bin/glsl2png');
-        this.lastImageWorker = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
-        this.lastImageWorker.stdout.on('data', (d) => {
-            this.loadImage(parseInt(d.toString('utf8')));
-        });
-        this.lastImageWorker.stderr.on('data', (d) => {
-            console.log('>> veda error: glsl2png throwed an error');
-            console.log(d.toString());
-        });
-        this.lastImageWorker.on('close', (code) => {
-            console.log(`>> veda info: child process exited with code ${code}`);
-        });
+        if (this.lastImageWorker) {
+            this.lastImageWorker.stdin.write('UPDATE\n');
+        } else {
+            // Start process
+            const time = (Date.now() - this.startTime) / 1000;
+            const outdir = path.join(tmpdir, 'veda');
+            const cmd = path.resolve(__dirname, '../bin/glsl2png');
+            this.lastImageWorker = cp.spawn(cmd, ['-outdir', outdir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
+            this.lastImageWorker.stdout.on('data', (d) => {
+                this.loadImage(parseInt(d.toString('utf8')));
+            });
+            this.lastImageWorker.stderr.on('data', (d) => {
+                console.log('>> veda error: glsl2png throwed an error');
+                console.log(d.toString());
+            });
+            this.lastImageWorker.on('close', (code) => {
+                console.log(`>> veda info: child process exited with code ${code}`);
+            });
+        }
     }
 
     loadImage = (idx: number) => {
