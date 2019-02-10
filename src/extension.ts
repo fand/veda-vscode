@@ -67,9 +67,9 @@ class VedaExtension {
         this.imageWorkerOutDir = path.join(this.tmpdir, 'veda');
 
         if (process.platform === "win32") {
-            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/glsl2png.exe');
+            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/veda-vscode-renderer.exe');
         } else if (process.platform === 'darwin') {
-            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/glsl2png');
+            this.imageWorkerCmdPath = path.resolve(__dirname, '../bin/veda-vscode-renderer');
         } else {
             vscode.window.showErrorMessage("VEDA is not supported on this platform: " + process.platform);
             this.imageWorkerCmdPath = "";
@@ -142,7 +142,7 @@ class VedaExtension {
                 this.loadImage(parseInt(d.toString('utf8')));
             });
             this.lastImageWorker.stderr.on('data', (d) => {
-                console.log('>> veda error: glsl2png throwed an error');
+                console.log('>> veda error: veda-vscode-renderer threw an error');
                 console.log(d.toString());
             });
             this.lastImageWorker.on('close', (code) => {
