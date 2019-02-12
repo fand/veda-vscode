@@ -132,12 +132,24 @@ class VedaExtension {
         const filepath = path.join(this.tmpdir, 'veda', `in.frag`);
         await p(fs.writeFile)(filepath, text, 'utf8');
 
+        // TODO: Parse header comment
+
         if (this.lastImageWorker) {
-            this.lastImageWorker.stdin.write('UPDATE\n');
+            const command = JSON.stringify({ Type: 'UPDATE' });
+            this.lastImageWorker.stdin.write(command + '\n');
         } else {
             // Start process
             const time = (Date.now() - this.startTime) / 1000;
-            this.lastImageWorker = cp.spawn(this.imageWorkerCmdPath, ['-outdir', this.imageWorkerOutDir, '-time', time.toString(), '-size', '720x450', '-hide', filepath]);
+            this.lastImageWorker = cp.spawn(
+                this.imageWorkerCmdPath,
+                [
+                    '-outdir', this.imageWorkerOutDir,
+                    '-time', time.toString(),
+                    '-size', '960x540',
+                    '-hide',
+                    filepath
+                ]
+            );
             this.lastImageWorker.stdout.on('data', (d) => {
                 this.loadImage(parseInt(d.toString('utf8')));
             });
