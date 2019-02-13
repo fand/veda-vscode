@@ -50,6 +50,16 @@ const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType =>
     });
 };
 
+
+const parseHeader = (code: string): { IMPORTED?: { [name: string]: { PATH: string } } } => {
+    const header = (code.match(/(?:\/\*)((?:.|\n|\r|\n\r)*?)(?:\*\/)/) || [])[1];
+    try {
+        return JSON.parse(header);
+    } catch {}
+
+    return {};
+};
+
 // App state
 class VedaExtension {
     _isInitialized: boolean = false;
@@ -132,11 +142,19 @@ class VedaExtension {
         const filepath = path.join(this.tmpdir, 'veda', `in.frag`);
         await p(fs.writeFile)(filepath, text, 'utf8');
 
-        // TODO: Parse header comment
+        const commands = [];
+
+        // Parse header comment
+        const header = parseHeader(text);
+        const imps = header.IMPORTED;
+        if (header && imps) {
+            Object.keys(imps).forEach(key => {
+                commands.push({ Type: 'IMPORT_VIDEO', Args: [key, imps[key].PATH] });
+            });
+        }
 
         if (this.lastImageWorker) {
-            const command = JSON.stringify({ Type: 'UPDATE' });
-            this.lastImageWorker.stdin.write(command + '\n');
+            commands.push({ Type: 'UPDATE', Args: [filepath] });
         } else {
             // Start process
             const time = (Date.now() - this.startTime) / 1000;
@@ -161,6 +179,9 @@ class VedaExtension {
                 console.log(`>> veda info: child process exited with code ${code}`);
             });
         }
+
+        // Send commands
+        commands.forEach(c => this.lastImageWorker!.stdin.write(JSON.stringify(c) + '\n'));
     }
 
     loadImage = (idx: number) => {
