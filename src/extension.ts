@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as p from 'pify';
 import * as os from 'os';
 import * as path from 'path';
+import * as JSON5 from 'json5';
 
 const objectToCssString = (settings: any): string => {
     let value = '';
@@ -54,7 +55,7 @@ const getDecoration = (explosionUrl: string): vscode.TextEditorDecorationType =>
 const parseHeader = (code: string): { IMPORTED?: { [name: string]: { PATH: string } } } => {
     const header = (code.match(/(?:\/\*)((?:.|\n|\r|\n\r)*?)(?:\*\/)/) || [])[1];
     try {
-        return JSON.parse(header);
+        return JSON5.parse(header);
     } catch {}
 
     return {};
