@@ -1,6 +1,8 @@
 /*{
   "IMPORTED": {
     "video": { "PATH": "videos/1.mp4" }
+    // "video": { "PATH": "/Users/amagi/Movies/vj/amagi/distorted.mp4" }
+    // "video": { "PATH": "~/Movies/vj/amagi/yellow_spiral.mp4" }
   }
 }*/
 #version 410

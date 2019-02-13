@@ -149,8 +149,12 @@ class VedaExtension {
         const header = parseHeader(text);
         const imps = header.IMPORTED;
         if (header && imps) {
+            const dirpath = path.dirname(editor.document.fileName);
             Object.keys(imps).forEach(key => {
-                commands.push({ Type: 'IMPORT_VIDEO', Args: [key, imps[key].PATH] });
+                const impPath = imps[key].PATH.replace(/^~/, process.env.HOME!);
+                const absImpPath = path.resolve(dirpath, impPath);
+                console.log(absImpPath);
+                commands.push({ Type: 'IMPORT_VIDEO', Args: [key, absImpPath] });
             });
         }
 
