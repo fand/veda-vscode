@@ -55,5 +55,15 @@
         "json5": "^2.1.0",
         "pify": "^4.0.1",
         "vedajs": "^0.9.0"
+    },
+    "publisher": "amagitakayosi",
+    "icon": "veda.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/fand/veda-vscode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/fand/veda-vscode/issues",
+        "email": "fand.gmork@gmail.com"
     }
 }
